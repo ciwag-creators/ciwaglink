@@ -1,0 +1,293 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f6fa;
+}
+
+/* Layout */
+.dashboard {
+  display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 220px;
+  background: linear-gradient(180deg, #4b00ff, #7a00ff);
+  color: white;
+  height: 100vh;
+  padding: 20px;
+}
+
+.sidebar h2 {
+  margin-bottom: 30px;
+}
+
+.sidebar a {
+  display: block;
+  color: white;
+  text-decoration: none;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+
+.sidebar a:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar .active {
+  background: white;
+  color: #4b00ff;
+}
+
+/* Main */
+.main {
+  flex: 1;
+}
+
+/* Header */
+.header {
+  background: white;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.fund-btn {
+  background: #7a00ff;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+}
+
+/* Content */
+.content {
+  padding: 20px;
+}
+
+/* Cards */
+.cards {
+  display: flex;
+  gap: 20px;
+}
+
+.card {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: black;
+  flex: 1;
+  text-align: center;
+  font-weight: bold;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.card:hover {
+  background: #f0e6ff;
+}
+
+/* Airtime UI */
+
+.airtime-box {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 700px;
+}
+
+.networks {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.network-card {
+  flex: 1;
+  border: 2px solid #eee;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.network-card img {
+  width: 50px;
+  height: 50px;
+}
+
+.network-card.active {
+  border-color: #6c2cff;
+  background: #f3edff;
+}
+
+/* Inputs */
+.input-group {
+  margin: 15px 0;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+/* Amount buttons */
+.amounts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.amount-btn {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.amount-btn.active {
+  background: #6c2cff;
+  color: white;
+  border-color: #6c2cff;
+}
+
+/* Button */
+.pay-btn {
+  margin-top: 20px;
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(90deg, #6c2cff, #9f5cff);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/*data*/
+
+/* Data Plans */
+.plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.plan-card {
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.plan-card.active {
+  border-color: #6c2cff;
+  background: #f3edff;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.tabs button {
+  padding: 10px 15px;
+  border: none;
+  background: #eee;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #6c2cff;
+  color: white;
+}
+
+.networks {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.network-card {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #eee;
+  text-align: center;
+  cursor: pointer;
+}
+
+.network-card img {
+  width: 40px;
+  height: 40px;
+}
+
+.network-card.active {
+  border-color: #6c2cff;
+  background: #f3edff;
+}
+
+/* Error */
+.error {
+  color: red;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.plan-card {
+  position: relative;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.plan-card:hover {
+  transform: scale(1.02);
+}
+
+.plan-card.active {
+  border: 2px solid #6c2cff;
+  background: #f3edff;
+}
+
+.plan-name {
+  font-size: 14px;
+}
+
+.plan-price {
+  font-size: 18px;
+  color: #6c2cff;
+}
+
+.selected-badge {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 12px;
+  color: green;
+}
+
+.summary-box {
+  margin-top: 15px;
+  padding: 15px;
+  background: #faf7ff;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+.pay-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
