@@ -10,6 +10,10 @@ export default function DataPage() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [showPlans, setShowPlans] = useState(false);
+const [showConfirm, setShowConfirm] = useState(false);
+const [loading, setLoading] = useState(false);
+const [result, setResult] = useState(null);
 
   const networks = [
     { id: "mtn", logo: "/networks/mtn.png" },
@@ -18,38 +22,46 @@ export default function DataPage() {
     { id: "9mobile", logo: "/networks/9mobile.png" }
   ];
 
-  // 🔥 Load plans
+  // ✅ Load plans
   useEffect(() => {
     const loadPlans = async () => {
       const res = await fetch(`/api/data/plans?network=${network}`);
       const data = await res.json();
 
-      if (data.success) {
-        setPlans(data.plans);
-      }
+      setPlans(Array.isArray(data.plans) ? data.plans : []);
     };
 
     loadPlans();
   }, [network]);
 
-  // 🔥 Phone detection + validation
-  const handlePhoneChange = (value) => {
-    setPhone(value);
+  // ✅ Close dropdown when clicking outside
+  useEffect(() => {
+    const close = () => setShowPlans(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
 
-    const detected = detectNetwork(value);
+  // ✅ Phone detection
+const handlePhoneChange = (value) => {
+  setPhone(value);
 
-    if (value.length >= 11 && !detected) {
-      setError("Invalid phone number");
-    } else {
-      setError("");
-    }
+  if (value.length < 11) {
+    setError("");
+    return;
+  }
 
-    if (detected) {
-      setNetwork(detected);
-    }
-  };
+  const detected = detectNetwork(value);
 
-  // 🔥 Purchase
+  if (!detected) {
+    setError("Invalid phone number");
+  } else if (detected !== network) {
+    setError(`This number is ${detected.toUpperCase()}, not ${network.toUpperCase()}`);
+  } else {
+    setError("");
+  }
+};
+
+  // ✅ Purchase
   const handlePurchase = async () => {
     if (!phone || !selectedPlan) {
       alert("Fill all fields");
@@ -88,7 +100,12 @@ export default function DataPage() {
   };
 
   return (
-    <DashboardLayout title="Buy Data">
+    <DashboardLayout
+  title="Buy Data"
+  result={result}
+  loading={loading}
+  setResult={setResult}
+>
 
       {/* NETWORKS */}
       <div className="networks">
@@ -98,40 +115,62 @@ export default function DataPage() {
             className={`network-card ${network === n.id ? "active" : ""}`}
             onClick={() => setNetwork(n.id)}
           >
-            <img src={n.logo} />
+            <img src={n.logo} alt={n.id} />
             <p>{n.id.toUpperCase()}</p>
           </div>
         ))}
       </div>
 
-   {/* PLANS */}
-      <div className="plans">
-  {plans?.length > 0 ? plans.map(plan => (
-    <div
-      key={plan.id}
-      className={`plan-card ${
-        selectedPlan?.id === plan.id ? "active" : ""
-      }`}
-      onClick={() => setSelectedPlan(plan)}
-    >
-      <p className="plan-name">{plan.name}</p>
-      <strong className="plan-price">₦{plan.selling_price}</strong>
+      {/* PLAN DROPDOWN */}
+      <div className="plan-selector">
+        <div
+          className="plan-dropdown"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowPlans(!showPlans);
+          }}
+        >
+          {selectedPlan ? (
+            <span>
+              {selectedPlan.name} - ₦{selectedPlan.selling_price}
+            </span>
+          ) : (
+            <span>Select Data Plan</span>
+          )}
+        </div>
 
-      {selectedPlan?.id === plan.id && (
-        <span className="selected-badge">✓ Selected</span>
+        {showPlans && (
+          <div
+            className="plan-dropdown-list"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {plans.length > 0 ? (
+              plans.map(plan => (
+                <div
+                  key={plan.id}
+                  className="plan-item"
+                  onClick={() => {
+                    setSelectedPlan(plan);
+                    setShowPlans(false);
+                  }}
+                >
+                  {plan.name} - ₦{plan.selling_price}
+                </div>
+              ))
+            ) : (
+              <p style={{ padding: "10px" }}>No plans available</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* SUMMARY */}
+      {selectedPlan && (
+        <div className="summary-box">
+          <p><strong>Selected Plan:</strong> {selectedPlan.name}</p>
+          <p><strong>Amount:</strong> ₦{selectedPlan.selling_price}</p>
+        </div>
       )}
-    </div>
-  )) : (
-    <p>No plans available</p>
-  )}
-</div>
-
-{selectedPlan && (
-  <div className="summary-box">
-    <p><strong>Selected Plan:</strong> {selectedPlan.name}</p>
-    <p><strong>Amount:</strong> ₦{selectedPlan.selling_price}</p>
-  </div>
-)}
 
       {/* PHONE */}
       <div className="input-group">
@@ -143,15 +182,61 @@ export default function DataPage() {
         {error && <p className="error">{error}</p>}
       </div>
 
-   
       {/* BUTTON */}
       <button
   className="pay-btn"
-  onClick={handlePurchase}
+  onClick={() => setShowConfirm(true)}
   disabled={!phone || !selectedPlan || error}
 >
   Proceed to Pay
 </button>
+
+{showConfirm && (
+  <div className="modal-overlay">
+    <div className="modal">
+      <h3>Confirm Purchase</h3>
+
+      <p><strong>Network:</strong> {network.toUpperCase()}</p>
+      <p><strong>Phone:</strong> {phone}</p>
+      <p><strong>Plan:</strong> {selectedPlan?.name}</p>
+      <p><strong>Amount:</strong> ₦{selectedPlan?.selling_price}</p>
+
+      <div className="modal-actions">
+        <button onClick={() => setShowConfirm(false)}>Cancel</button>
+
+        <button
+          className="confirm-btn"
+          onClick={async () => {
+            setShowConfirm(false);
+            setLoading(true);
+
+            try {
+              const res = await fetch("/api/data", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  user_id: "demo-user-id",
+                  phone,
+                  plan_id: selectedPlan.id
+                })
+              });
+
+              const data = await res.json();
+              setResult(data);
+
+            } catch (err) {
+              setResult({ success: false, message: "Network error" });
+            }
+
+            setLoading(false);
+          }}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
     </DashboardLayout>
   );

@@ -1,29 +1,35 @@
+import axios from "axios";
 import { supabase } from "@/lib/supabaseClient";
 import { lockWallet, releaseWallet } from "./wallet";
-import axios from "axios";
+import { calculateSellingPrice } from "./pricing";
 import { v4 as uuidv4 } from "uuid";
 
-export async function runDataPurchase(payload) {
+export async function buyData({ user_id, phone, plan }) {
   const transaction_id = uuidv4();
 
+  const sellingPrice = calculateSellingPrice(plan.provider_price);
+
   try {
+    // create transaction
     await supabase.from("transactions").insert({
       id: transaction_id,
-      user_id: payload.user_id,
+      user_id,
       service: "data",
-      amount: payload.amount,
-      phone: payload.phone,
-      status: "pending"
+      amount: sellingPrice,
+      phone,
+      status: "pending",
+      reference: transaction_id
     });
 
-    await lockWallet(payload.user_id, payload.amount, transaction_id);
+    // lock wallet
+    await lockWallet(user_id, sellingPrice);
 
-    // 🔥 CALL CHEAPDATAHUB
+    // call CheapDataHub
     const res = await axios.post(
       `${process.env.CHEAPDATAHUB_BASE_URL}/data/purchase/`,
       {
-        bundle_id: payload.bundle_id,
-        phone_number: payload.phone
+        bundle_id: plan.bundle_id,
+        phone_number: phone
       },
       {
         headers: {
@@ -32,20 +38,21 @@ export async function runDataPurchase(payload) {
       }
     );
 
-    await supabase.from("transactions")
+    // success
+    await supabase
+      .from("transactions")
       .update({
         status: "success",
         response_payload: res.data
       })
       .eq("id", transaction_id);
 
-    await releaseWallet(payload.user_id, payload.amount, transaction_id, true);
+    await releaseWallet(user_id, sellingPrice, true);
 
     return { success: true };
 
   } catch (err) {
-
-    await releaseWallet(payload.user_id, payload.amount, transaction_id, false);
+    await releaseWallet(user_id, sellingPrice, false);
 
     return { success: false, message: err.message };
   }

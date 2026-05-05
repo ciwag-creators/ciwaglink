@@ -4,46 +4,42 @@ import { calculateSellingPrice } from "@/lib/vtu/pricing";
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    let network = searchParams.get("network");
+    const network = searchParams.get("network");
 
-    if (network) {
-      network = network.toLowerCase().trim();
-    }
+    console.log("API NETWORK:", network);
 
-    let query = supabase.from("data_plans").select("*");
-
-    if (network) {
-      query = query.eq("network", network);
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await supabase
+      .from("data_plans")
+      .select("*")
+      .eq("network", network);
 
     if (error) {
-      return Response.json({ success: false, plans: [] });
+      console.log("SUPABASE ERROR:", error);
+      return Response.json({
+        success: false,
+        plans: []
+      });
     }
 
-    const plans = (data || []).map((plan) => ({
-      id: plan.id,
-      name: plan.name, // ✅ MUST MATCH FRONTEND
-      network: plan.network,
-      plan_id: plan.plan_id,
-      provider_price: plan.provider_price,
+    console.log("RAW DATA:", data);
 
-      // 🔥 frontend expects this
-      selling_price: calculateSellingPrice(plan.provider_price),
+    const plans = (data || []).map(plan => ({
+      ...plan,
+      selling_price: calculateSellingPrice(plan.provider_price)
     }));
-    
-console.log("PLANS FROM API:", data.plans);
+
+    console.log("FINAL PLANS:", plans);
 
     return Response.json({
       success: true,
-      plans,
+      plans: plans || []
     });
 
   } catch (err) {
+    console.log("API ERROR:", err);
     return Response.json({
       success: false,
-      plans: [],
+      plans: []
     });
   }
 }
