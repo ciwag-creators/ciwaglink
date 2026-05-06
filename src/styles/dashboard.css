@@ -331,3 +331,90 @@ body {
 .plan-item:hover {
   background: #f3e8ff;
 }
+
+/*ELECTRICITY*/
+.disco-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.disco-card {
+  border: 2px solid #eee;
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  background: #fff;
+  transition: 0.2s;
+}
+
+.disco-card img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.disco-card:hover {
+  transform: scale(1.05);
+}
+
+.disco-card.active {
+  border-color: #6c2bd9;
+  background: #f5f0ff;
+}
+
+.verified-box {
+  margin: 10px 0;
+  padding: 10px;
+  background: #e6ffed;
+  color: green;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+.verified-box {
+  margin: 15px 0;
+  padding: 15px;
+  background: #e6ffed;
+  color: #065f46;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.token-box {
+  margin-top: 15px;
+  padding: 15px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.token-value {
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin: 10px 0;
+  color: #111;
+}
+
+.copy-btn {
+  padding: 8px 12px;
+  background: #6c2bd9;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.receipt-btn {
+  margin-top: 15px;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+}

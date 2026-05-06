@@ -1,6 +1,7 @@
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import "../styles/dashboard.css";
+import { generateReceipt } from "@/lib/utils/generateReceipt";
 
 export default function DashboardLayout({
   children,
@@ -18,8 +19,30 @@ export default function DashboardLayout({
 
             {result.success ? (
               <>
-                <h2 className="success">✅ Success</h2>
-                <p>Transaction successful!</p>
+                <h2 className="success">✅ Payment Successful</h2>
+
+<p>{result.message}</p>
+
+{result.token && (
+  <div className="token-box">
+    <p><strong>Token:</strong></p>
+
+    <div className="token-value">
+      {result.token}
+    </div>
+
+    <button
+      onClick={() => navigator.clipboard.writeText(result.token)}
+      className="copy-btn"
+    >
+      Copy Token
+    </button>
+
+    {result.units && (
+      <p>Units: {result.units}</p>
+    )}
+  </div>
+)}
               </>
             ) : (
               <>
