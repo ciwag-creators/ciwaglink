@@ -41,13 +41,12 @@ export async function POST(req) {
     // GET WALLET
     // ======================
 
-    const {
-      data: wallet
-    } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", user_id)
-      .single();
+    const { data: wallet, error: walletError } = await supabase
+  .from("wallets")
+  .select("*")
+  .eq("user_id", user_id)
+  .single();
+
 
     if (!wallet) {
 

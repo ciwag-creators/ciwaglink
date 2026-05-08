@@ -1,20 +1,16 @@
 import axios from "axios";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  lockWallet,
-  releaseWallet
-} from "./wallet";
+import { lockWallet, releaseWallet } from "./wallet";
 
 export async function buyData({
   user_id,
   phone,
   plan_id,
-  network
 }) {
   try {
 
     // =========================
-    // FETCH PLAN
+    // GET PLAN
     // =========================
 
     const { data: plan, error } = await supabase
@@ -26,9 +22,11 @@ export async function buyData({
     if (error || !plan) {
       return {
         success: false,
-        message: "Invalid plan selected"
+        message: "Plan not found",
       };
     }
+
+    console.log("PLAN:", plan);
 
     const amount = Number(plan.selling_price);
 
@@ -50,62 +48,34 @@ export async function buyData({
     }
 
     // =========================
-    // CHEAPDATAHUB PAYLOAD
-    // =========================
-
-    const payload = {
-      bundle_id: String(plan.api_plan_id),
-      phone_number: phone
-    };
-
-    console.log("========== DATA PURCHASE ==========");
-    console.log("PLAN:", plan.name);
-    console.log("PLAN ID:", plan.api_plan_id);
-    console.log("PHONE:", phone);
-    console.log("PAYLOAD:", payload);
-
-    // =========================
-    // REQUEST
+    // BUY DATA
     // =========================
 
     const response = await axios.post(
       "https://www.cheapdatahub.ng/api/v1/resellers/data/purchase/",
-      payload,
+      {
+        bundle_id: Number(plan.api_plan_id),
+        phone_number: phone,
+      },
       {
         headers: {
-          Authorization: `Bearer ${process.env.CHEAPDATAHUB_KEY}`,
-          "Content-Type": "application/json"
-        }
+          Authorization: `Bearer ${process.env.CHEAPDATAHUB_API_KEY}`,
+          "Content-Type": "application/json",
+        },
       }
     );
 
-    // =========================
-    // RAW RESPONSE
-    // =========================
-
     console.log(
-      "CHEAPDATA RAW RESPONSE:"
-    );
-
-    console.log(
-      JSON.stringify(response.data, null, 2)
+      "DATA API RESPONSE:",
+      response.data
     );
 
     // =========================
-    // SUCCESS DETECTION
+    // SUCCESS CHECK
     // =========================
-
-    const raw = response.data;
 
     const success =
-      raw.status === true ||
-      raw.status === "true" ||
-      raw.success === true ||
-      raw.success === "true" ||
-      raw.Status === "successful" ||
-      raw.code === "success";
-
-    console.log("SUCCESS:", success);
+      response.data.status === "true";
 
     // =========================
     // RELEASE WALLET
@@ -119,61 +89,25 @@ export async function buyData({
     );
 
     // =========================
-    // SAVE TRANSACTION
-    // =========================
-
-    await supabase
-      .from("transactions")
-      .insert({
-        user_id,
-        type: "data",
-        network,
-        phone,
-        amount,
-        status: success
-          ? "successful"
-          : "failed",
-        reference:
-          raw.reference ||
-          transaction_id,
-        provider_response: raw
-      });
-
-    // =========================
-    // FAILED
-    // =========================
-
-    if (!success) {
-
-      return {
-        success: false,
-        message:
-          raw.message ||
-          raw.api_response ||
-          "Data purchase failed",
-        provider_response: raw
-      };
-    }
-
-    // =========================
-    // SUCCESS
+    // RESPONSE
     // =========================
 
     return {
-      success: true,
+      success,
       message:
-        raw.message ||
-        "Data purchase successful",
-      provider_response: raw
+        response.data.message ||
+        "Data purchase completed",
+      reference:
+        response.data.reference ||
+        null,
+      transaction_id,
     };
 
   } catch (err) {
 
-    console.log("========== DATA ERROR ==========");
-
     console.log(
-      err.response?.data ||
-      err.message
+      "DATA PURCHASE ERROR:",
+      err.response?.data || err.message
     );
 
     return {
@@ -181,9 +115,6 @@ export async function buyData({
       message:
         err.response?.data?.message ||
         "Data purchase failed",
-      error:
-        err.response?.data ||
-        err.message
     };
   }
 }
