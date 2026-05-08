@@ -1,45 +1,56 @@
+import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-import { calculateSellingPrice } from "@/lib/vtu/pricing";
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
+
     const network = searchParams.get("network");
 
-    console.log("API NETWORK:", network);
-
-    const { data, error } = await supabase
-      .from("data_plans")
-      .select("*")
-      .eq("network", network);
-
-    if (error) {
-      console.log("SUPABASE ERROR:", error);
-      return Response.json({
+    // VALIDATE
+    if (!network) {
+      return NextResponse.json({
         success: false,
-        plans: []
+        message: "Network is required",
       });
     }
 
-    console.log("RAW DATA:", data);
+    // FETCH PLANS
+    const { data, error } = await supabase
+      .from("data_plans")
+      .select(`
+        id,
+        network,
+        name,
+        provider_price,
+        selling_price,
+        api_plan_id
+      `)
+      .eq("network", network.toLowerCase())
+      .order("provider_price", { ascending: true });
 
-    const plans = (data || []).map(plan => ({
-      ...plan,
-      selling_price: calculateSellingPrice(plan.provider_price)
-    }));
+    if (error) {
+      console.log("SUPABASE ERROR:", error);
 
-    console.log("FINAL PLANS:", plans);
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      });
+    }
 
-    return Response.json({
+    console.log("DATABASE PLANS:", data);
+
+    return NextResponse.json({
       success: true,
-      plans: plans || []
+      plans: data || [],
     });
 
   } catch (err) {
-    console.log("API ERROR:", err);
-    return Response.json({
+    console.log("SERVER ERROR:", err);
+
+    return NextResponse.json({
       success: false,
-      plans: []
+      message: "Server error",
     });
   }
 }

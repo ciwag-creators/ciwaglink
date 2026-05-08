@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { detectNetwork } from "@/lib/utils/detectNetwork";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function DataPage() {
   const [network, setNetwork] = useState("mtn");
@@ -75,16 +76,17 @@ const handlePhoneChange = (value) => {
 
     try {
       const res = await fetch("/api/data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          user_id: "demo-user-id",
-          phone,
-          plan_id: selectedPlan.id
-        })
-      });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    user_id: user.id,
+    phone,
+    amount,
+    network
+  })
+});
 
       const data = await res.json();
 
@@ -217,12 +219,18 @@ const handlePhoneChange = (value) => {
                 body: JSON.stringify({
                   user_id: "demo-user-id",
                   phone,
+                  network,
                   plan_id: selectedPlan.id
                 })
               });
 
               const data = await res.json();
-              setResult(data);
+              console.log("PURCHASE RESULT:", data);
+
+setResult({
+  success: data.success,
+  message: data.message
+});
 
             } catch (err) {
               setResult({ success: false, message: "Network error" });

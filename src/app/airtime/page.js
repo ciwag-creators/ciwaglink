@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function AirtimePage() {
   const [network, setNetwork] = useState("mtn");
@@ -27,18 +28,17 @@ export default function AirtimePage() {
 
     try {
       const res = await fetch("/api/airtime", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          user_id: "demo-user-id", // replace later with auth user
-          phone,
-          amount,
-          provider_id: selected.provider_id,
-          service_id: selected.id
-        })
-      });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    user_id: user.id,
+    phone,
+    amount,
+    network
+  })
+});
 
       const data = await res.json();
 

@@ -1,7 +1,11 @@
 export function calculateSellingPrice(providerPrice) {
   const price = Number(providerPrice);
 
-  if (price <= 500) {
+  if (price <= 200) {
+    return price + 30; // quick plans
+  }
+
+if (price <= 500) {
     return price + 80; // small plans
   }
 
