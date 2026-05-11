@@ -1,250 +1,502 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { detectNetwork } from "@/lib/utils/detectNetwork";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function DataPage() {
+
+  // =========================
+  // STATES
+  // =========================
+
   const [network, setNetwork] = useState("mtn");
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [phone, setPhone] = useState("");
-  const [error, setError] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
   const [showPlans, setShowPlans] = useState(false);
-const [showConfirm, setShowConfirm] = useState(false);
-const [loading, setLoading] = useState(false);
-const [result, setResult] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const [error, setError] = useState("");
+
+  // =========================
+  // NETWORKS
+  // =========================
 
   const networks = [
-    { id: "mtn", logo: "/networks/mtn.png" },
-    { id: "airtel", logo: "/networks/airtel.png" },
-    { id: "glo", logo: "/networks/glo.png" },
-    { id: "9mobile", logo: "/networks/9mobile.png" }
+    {
+      id: "mtn",
+      logo: "/networks/mtn.png",
+    },
+    {
+      id: "airtel",
+      logo: "/networks/airtel.png",
+    },
+    {
+      id: "glo",
+      logo: "/networks/glo.png",
+    },
+    {
+      id: "9mobile",
+      logo: "/networks/9mobile.png",
+    },
   ];
 
-  // ✅ Load plans
-  useEffect(() => {
-    const loadPlans = async () => {
-      const res = await fetch(`/api/data/plans?network=${network}`);
-      const data = await res.json();
+  // =========================
+  // LOAD PLANS
+  // =========================
 
-      setPlans(Array.isArray(data.plans) ? data.plans : []);
+  useEffect(() => {
+
+    const loadPlans = async () => {
+
+      try {
+
+        const res = await fetch(
+          `/api/data/plans?network=${network}`
+        );
+
+        const data = await res.json();
+
+        console.log("PLANS RESPONSE:", data);
+
+        if (data.success) {
+          setPlans(data.plans || []);
+        } else {
+          setPlans([]);
+        }
+
+      } catch (err) {
+
+        console.log("LOAD PLANS ERROR:", err);
+
+        setPlans([]);
+      }
     };
 
     loadPlans();
+
   }, [network]);
 
-  // ✅ Close dropdown when clicking outside
+  // =========================
+  // CLOSE DROPDOWN
+  // =========================
+
   useEffect(() => {
-    const close = () => setShowPlans(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
+
+    const closeDropdown = () => {
+      setShowPlans(false);
+    };
+
+    window.addEventListener(
+      "click",
+      closeDropdown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "click",
+        closeDropdown
+      );
+    };
+
   }, []);
 
-  // ✅ Phone detection
-const handlePhoneChange = (value) => {
-  setPhone(value);
+  // =========================
+  // PHONE VALIDATION
+  // =========================
 
-  if (value.length < 11) {
-    setError("");
-    return;
-  }
+  const handlePhoneChange = (value) => {
 
-  const detected = detectNetwork(value);
+    setPhone(value);
 
-  if (!detected) {
-    setError("Invalid phone number");
-  } else if (detected !== network) {
-    setError(`This number is ${detected.toUpperCase()}, not ${network.toUpperCase()}`);
-  } else {
-    setError("");
-  }
-};
+    if (value.length < 11) {
+      setError("");
+      return;
+    }
 
-  // ✅ Purchase
+    const detected = detectNetwork(value);
+
+    if (!detected) {
+
+      setError("Invalid phone number");
+
+    } else if (detected !== network) {
+
+      setError(
+        `This number is ${detected.toUpperCase()}, not ${network.toUpperCase()}`
+      );
+
+    } else {
+
+      setError("");
+    }
+  };
+
+  // =========================
+  // PURCHASE DATA
+  // =========================
+
   const handlePurchase = async () => {
-    if (!phone || !selectedPlan) {
-      alert("Fill all fields");
-      return;
-    }
-
-    if (error) {
-      alert("Fix phone number");
-      return;
-    }
 
     try {
+
+      setLoading(true);
+
+      // =========================
+      // GET AUTH USER
+      // =========================
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      console.log("AUTH USER:", user);
+
+      if (!user) {
+
+        setResult({
+          success: false,
+          message: "Please login",
+        });
+
+        setLoading(false);
+
+        return;
+      }
+
+      // =========================
+      // API REQUEST
+      // =========================
+
       const res = await fetch("/api/data", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    user_id: user.id,
-    phone,
-    amount,
-    network
-  })
-});
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          user_id: user.id,
+          phone,
+          network,
+          plan_id: selectedPlan.id,
+        }),
+      });
 
       const data = await res.json();
 
+      console.log(
+        "DATA PURCHASE RESPONSE:",
+        data
+      );
+
+      setResult(data);
+
+      // =========================
+      // RESET FORM
+      // =========================
+
       if (data.success) {
-        alert("Data purchase successful!");
-      } else {
-        alert(data.message || "Failed");
+
+        setPhone("");
+        setSelectedPlan(null);
       }
 
     } catch (err) {
-      alert("Error processing request");
+
+      console.log(
+        "DATA PURCHASE ERROR:",
+        err
+      );
+
+      setResult({
+        success: false,
+        message: "Network error",
+      });
+
+    } finally {
+
+      setLoading(false);
     }
   };
 
   return (
     <DashboardLayout
-  title="Buy Data"
-  result={result}
-  loading={loading}
-  setResult={setResult}
->
+      title="Buy Data"
+      loading={loading}
+      result={result}
+      setResult={setResult}
+    >
 
       {/* NETWORKS */}
+
       <div className="networks">
-        {networks.map(n => (
+
+        {networks.map((n) => (
+
           <div
             key={n.id}
-            className={`network-card ${network === n.id ? "active" : ""}`}
-            onClick={() => setNetwork(n.id)}
+            className={`network-card ${
+              network === n.id
+                ? "active"
+                : ""
+            }`}
+            onClick={() => {
+              setNetwork(n.id);
+              setSelectedPlan(null);
+            }}
           >
-            <img src={n.logo} alt={n.id} />
-            <p>{n.id.toUpperCase()}</p>
+
+            <img
+              src={n.logo}
+              alt={n.id}
+            />
+
+            <p>
+              {n.id.toUpperCase()}
+            </p>
+
           </div>
         ))}
+
       </div>
 
-      {/* PLAN DROPDOWN */}
+      {/* PLAN SELECTOR */}
+
       <div className="plan-selector">
+
         <div
           className="plan-dropdown"
           onClick={(e) => {
+
             e.stopPropagation();
-            setShowPlans(!showPlans);
+
+            setShowPlans(
+              !showPlans
+            );
           }}
         >
+
           {selectedPlan ? (
             <span>
-              {selectedPlan.name} - ₦{selectedPlan.selling_price}
+              {selectedPlan.name}
+              {" - "}
+              ₦
+              {selectedPlan.selling_price}
             </span>
           ) : (
-            <span>Select Data Plan</span>
+            <span>
+              Select Data Plan
+            </span>
           )}
+
         </div>
 
+        {/* DROPDOWN LIST */}
+
         {showPlans && (
+
           <div
             className="plan-dropdown-list"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
+
             {plans.length > 0 ? (
-              plans.map(plan => (
+
+              plans.map((plan) => (
+
                 <div
                   key={plan.id}
                   className="plan-item"
                   onClick={() => {
-                    setSelectedPlan(plan);
-                    setShowPlans(false);
+
+                    setSelectedPlan(
+                      plan
+                    );
+
+                    setShowPlans(
+                      false
+                    );
                   }}
                 >
-                  {plan.name} - ₦{plan.selling_price}
+
+                  {plan.name}
+                  {" - "}
+                  ₦
+                  {plan.selling_price}
+
                 </div>
               ))
+
             ) : (
-              <p style={{ padding: "10px" }}>No plans available</p>
+
+              <div
+                style={{
+                  padding: "10px",
+                }}
+              >
+                No plans available
+              </div>
             )}
+
           </div>
         )}
+
       </div>
 
       {/* SUMMARY */}
+
       {selectedPlan && (
+
         <div className="summary-box">
-          <p><strong>Selected Plan:</strong> {selectedPlan.name}</p>
-          <p><strong>Amount:</strong> ₦{selectedPlan.selling_price}</p>
+
+          <p>
+            <strong>
+              Network:
+            </strong>{" "}
+            {network.toUpperCase()}
+          </p>
+
+          <p>
+            <strong>
+              Plan:
+            </strong>{" "}
+            {selectedPlan.name}
+          </p>
+
+          <p>
+            <strong>
+              Amount:
+            </strong>{" "}
+            ₦
+            {selectedPlan.selling_price}
+          </p>
+
         </div>
       )}
 
       {/* PHONE */}
+
       <div className="input-group">
+
         <input
+          type="tel"
           placeholder="Enter phone number"
           value={phone}
-          onChange={(e) => handlePhoneChange(e.target.value)}
+          onChange={(e) =>
+            handlePhoneChange(
+              e.target.value
+            )
+          }
         />
-        {error && <p className="error">{error}</p>}
+
+        {error && (
+          <p className="error">
+            {error}
+          </p>
+        )}
+
       </div>
 
       {/* BUTTON */}
+
       <button
-  className="pay-btn"
-  onClick={() => setShowConfirm(true)}
-  disabled={!phone || !selectedPlan || error}
->
-  Proceed to Pay
-</button>
+        className="pay-btn"
+        disabled={
+          !phone ||
+          !selectedPlan ||
+          !!error
+        }
+        onClick={() =>
+          setShowConfirm(true)
+        }
+      >
+        Proceed to Pay
+      </button>
 
-{showConfirm && (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>Confirm Purchase</h3>
+      {/* CONFIRM MODAL */}
 
-      <p><strong>Network:</strong> {network.toUpperCase()}</p>
-      <p><strong>Phone:</strong> {phone}</p>
-      <p><strong>Plan:</strong> {selectedPlan?.name}</p>
-      <p><strong>Amount:</strong> ₦{selectedPlan?.selling_price}</p>
+      {showConfirm && (
 
-      <div className="modal-actions">
-        <button onClick={() => setShowConfirm(false)}>Cancel</button>
+        <div className="modal-overlay">
 
-        <button
-          className="confirm-btn"
-          onClick={async () => {
-            setShowConfirm(false);
-            setLoading(true);
+          <div className="modal">
 
-            try {
-              const res = await fetch("/api/data", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  user_id: "demo-user-id",
-                  phone,
-                  network,
-                  plan_id: selectedPlan.id
-                })
-              });
+            <h3>
+              Confirm Purchase
+            </h3>
 
-              const data = await res.json();
-              console.log("PURCHASE RESULT:", data);
+            <p>
+              <strong>
+                Network:
+              </strong>{" "}
+              {network.toUpperCase()}
+            </p>
 
-setResult({
-  success: data.success,
-  message: data.message
-});
+            <p>
+              <strong>
+                Phone:
+              </strong>{" "}
+              {phone}
+            </p>
 
-            } catch (err) {
-              setResult({ success: false, message: "Network error" });
-            }
+            <p>
+              <strong>
+                Plan:
+              </strong>{" "}
+              {selectedPlan?.name}
+            </p>
 
-            setLoading(false);
-          }}
-        >
-          Confirm
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+            <p>
+              <strong>
+                Amount:
+              </strong>{" "}
+              ₦
+              {
+                selectedPlan?.selling_price
+              }
+            </p>
+
+            <div className="modal-actions">
+
+              <button
+                onClick={() =>
+                  setShowConfirm(
+                    false
+                  )
+                }
+              >
+                Cancel
+              </button>
+
+              <button
+                className="confirm-btn"
+                onClick={async () => {
+
+                  setShowConfirm(
+                    false
+                  );
+
+                  await handlePurchase();
+                }}
+              >
+                Confirm
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
     </DashboardLayout>
   );
