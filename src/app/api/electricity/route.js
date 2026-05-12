@@ -1,8 +1,10 @@
-import axios from "axios";
-import { lockWallet, releaseWallet } from "@/lib/vtu/wallet";
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabaseClient";
 
 export async function POST(req) {
+
   try {
+
     const body = await req.json();
 
     const {
@@ -10,95 +12,237 @@ export async function POST(req) {
       disco,
       meter_number,
       meter_type,
-      amount
+      amount,
+      phone,
     } = body;
 
-    // ✅ Validate input
-    if (!user_id || !meter_number || !amount) {
-      return Response.json({
+    // =========================
+    // VALIDATION
+    // =========================
+
+    if (
+      !user_id ||
+      !disco ||
+      !meter_number ||
+      !meter_type ||
+      !amount ||
+      !phone
+    ) {
+      return NextResponse.json({
         success: false,
-        message: "Missing required fields"
+        message: "Missing required fields",
       });
     }
 
-    // 🔐 Generate transaction ID
-    const transaction_id = "ELEC_" + Date.now();
+    // =========================
+    // GET WALLET
+    // =========================
 
-    // 🔒 LOCK WALLET
-    const lock = await lockWallet(user_id, Number(amount), transaction_id);
+    const {
+      data: wallet,
+      error: walletError,
+    } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("user_id", user_id)
+      .single();
 
-    if (!lock.success) {
-      return Response.json({
+    console.log("WALLET:", wallet);
+
+    if (walletError || !wallet) {
+
+      console.log(
+        "WALLET ERROR:",
+        walletError
+      );
+
+      return NextResponse.json({
         success: false,
-        message: lock.message || "Insufficient balance"
+        message: "Wallet not found",
       });
     }
 
-    // 🚀 CALL CHEAPDATAHUB
-    const response = await axios.post(
+    // =========================
+    // CHECK BALANCE
+    // =========================
+
+    if (
+      Number(wallet.balance) <
+      Number(amount)
+    ) {
+      return NextResponse.json({
+        success: false,
+        message:
+          "Insufficient wallet balance",
+      });
+    }
+
+    // =========================
+    // CREATE TRANSACTION
+    // =========================
+
+    const {
+      data: transaction,
+    } = await supabase
+      .from("electricity_transactions")
+      .insert({
+        user_id,
+
+        disco,
+
+        meter_number,
+
+        meter_type,
+
+        amount,
+
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    // =========================
+    // CALL CHEAPDATAHUB
+    // =========================
+
+    const response = await fetch(
       "https://www.cheapdatahub.ng/api/v1/resellers/electricity/purchase/",
       {
-        disco,
-        meter_number,
-        meter_type,
-        amount,
-        phone_number: "08000000000" // required fallback field
-      },
-      {
+        method: "POST",
+
         headers: {
-          Authorization: `Bearer ${process.env.CHEAPDATA_API_KEY}`,
-          "Content-Type": "application/json"
-        }
+          Authorization: `Bearer ${process.env.CHEAPDATAHUB_API_KEY}`,
+
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          disco_id: disco,
+
+          meter_number,
+
+          amount,
+
+          meter_type,
+
+          phone,
+        }),
       }
     );
 
-    const resData = response.data;
+    const result =
+      await response.json();
 
-    const success = resData.status === "true";
+    console.log(
+      "ELECTRICITY RESPONSE:",
+      result
+    );
 
-    // 🎯 EXTRACT TOKEN SAFELY
-    const tokenData = resData.data || {};
+    // =========================
+    // FAILED
+    // =========================
 
-    const token =
-      tokenData.token ||
-      tokenData.pin ||
-      tokenData.units_token ||
-      null;
+    if (
+      result.status !== "true"
+    ) {
 
-    const units =
-      tokenData.units ||
-      tokenData.unit ||
-      null;
+      await supabase
+        .from(
+          "electricity_transactions"
+        )
+        .update({
+          status: "failed",
+        })
+        .eq(
+          "id",
+          transaction.id
+        );
 
-    // 🔓 RELEASE WALLET
-    await releaseWallet(user_id, Number(amount), transaction_id, success);
+      return NextResponse.json({
+        success: false,
 
-   return Response.json({
-  success,
-  message: resData.message,
+        message:
+          result.message ||
+          "Electricity purchase failed",
+      });
+    }
 
-  token,
-  units,
-  disco,
+    // =========================
+    // DEDUCT WALLET
+    // =========================
 
-  transaction_id,
+    const newBalance =
+      Number(wallet.balance) -
+      Number(amount);
 
-  meter_number,
-  amount,
+    await supabase
+      .from("wallets")
+      .update({
+        balance: newBalance,
+      })
+      .eq("user_id", user_id);
 
-  customer: {
-    name: "Verified Customer"
-  }
-});
+    // =========================
+    // UPDATE TRANSACTION
+    // =========================
+
+    await supabase
+      .from(
+        "electricity_transactions"
+      )
+      .update({
+
+        status: "success",
+
+        token:
+          result.data?.token || "",
+
+        units:
+          result.data?.units || "",
+
+        reference:
+          result.reference || "",
+
+      })
+      .eq(
+        "id",
+        transaction.id
+      );
+
+    // =========================
+    // SUCCESS RESPONSE
+    // =========================
+
+    return NextResponse.json({
+
+      success: true,
+
+      message:
+        result.message ||
+        "Electricity purchase successful",
+
+      token:
+        result.data?.token,
+
+      units:
+        result.data?.units,
+
+      new_balance:
+        newBalance,
+
+    });
 
   } catch (err) {
-    console.error("ELECTRICITY ERROR:", err?.response?.data || err.message);
 
-    return Response.json({
+    console.log(
+      "ELECTRICITY ERROR:",
+      err
+    );
+
+    return NextResponse.json({
       success: false,
-      message:
-        err?.response?.data?.message ||
-        "Electricity purchase failed"
+      message: "Server error",
     });
   }
 }

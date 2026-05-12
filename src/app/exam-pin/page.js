@@ -1,105 +1,392 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/lib/supabaseClient";
+import { exams } from "@/lib/exam/exams";
 
-export default function ExampinPage() {
-  const [products, setProducts] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [quantity, setQuantity] = useState(1);
+export default function ExamPinPage() {
 
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [selectedExam, setSelectedExam] =
+    useState(null);
 
-  // 🔥 LOAD PRODUCTS
+  const [quantity, setQuantity] =
+    useState(1);
+
+  const [wallet, setWallet] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [result, setResult] =
+    useState(null);
+
+  // =========================
+  // LOAD WALLET
+  // =========================
+
   useEffect(() => {
-    const load = async () => {
-      const res = await fetch("/api/exam-pin/products");
-      const data = await res.json();
 
-      if (data.success) {
-        setProducts(data.products);
-      }
-    };
+    const loadWallet =
+      async () => {
 
-    load();
+        const {
+          data: { user },
+        } =
+          await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const { data } =
+          await supabase
+            .from("wallets")
+            .select("*")
+            .eq(
+              "user_id",
+              user.id
+            )
+            .single();
+
+        setWallet(data);
+      };
+
+    loadWallet();
+
   }, []);
 
-  // 💳 PURCHASE
-  const handlePurchase = async () => {
-    if (!selectedProduct) {
-      alert("Select exam type");
-      return;
-    }
+  // =========================
+  // TOTAL
+  // =========================
 
-    setLoading(true);
+  const total =
+    selectedExam
+      ? selectedExam.price *
+        quantity
+      : 0;
 
-    try {
-      const res = await fetch("/api/exam-pin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          user_id: "demo-user-id",
-          product_id: selectedProduct.product_id,
-          quantity
-        })
-      });
+  // =========================
+  // BUY PIN
+  // =========================
 
-      const data = await res.json();
-      setResult(data);
+  const buyPin =
+    async () => {
 
-    } catch {
-      setResult({ success: false, message: "Network error" });
-    }
+      try {
 
-    setLoading(false);
-  };
+        setLoading(true);
+
+        const {
+          data: { user },
+        } =
+          await supabase.auth.getUser();
+
+        if (!user) {
+
+          alert(
+            "Please login"
+          );
+
+          return;
+        }
+
+        const res = await fetch(
+          "/api/exam-pin",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              user_id:
+                user.id,
+
+              exam_type:
+                selectedExam.id,
+
+              product_id:
+                selectedExam.product_id,
+
+              quantity,
+
+              amount: total,
+
+            }),
+          }
+        );
+
+        const data =
+          await res.json();
+
+        console.log(
+          "EXAM RESULT:",
+          data
+        );
+
+        setResult(data);
+
+        // REFRESH WALLET
+
+        const {
+          data: newWallet,
+        } = await supabase
+          .from("wallets")
+          .select("*")
+          .eq(
+            "user_id",
+            user.id
+          )
+          .single();
+
+        setWallet(newWallet);
+
+      } catch (err) {
+
+        console.log(err);
+
+        setResult({
+          success: false,
+          message:
+            "Something went wrong",
+        });
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
 
   return (
     <DashboardLayout
       title="Exam PIN"
-      result={result}
-      loading={loading}
-      setResult={setResult}
     >
 
-      {/* PRODUCTS */}
-      <div className="plans">
-        {products.map(p => (
+      {/* WALLET */}
+
+      <div className="wallet-card">
+
+        <p>
+          Wallet Balance
+        </p>
+
+        <h1>
+          ₦
+          {Number(
+            wallet?.balance || 0
+          ).toLocaleString()}
+        </h1>
+
+      </div>
+
+      {/* EXAMS */}
+
+      <div className="disco-grid">
+
+        {exams.map(exam => (
+
           <div
-            key={p.product_id}
-            className={`plan-card ${selectedProduct?.product_id === p.product_id ? "active" : ""}`}
-            onClick={() => setSelectedProduct(p)}
+            key={exam.id}
+
+            className={`disco-card ${
+              selectedExam?.id ===
+              exam.id
+                ? "active"
+                : ""
+            }`}
+
+            onClick={() =>
+              setSelectedExam(
+                exam
+              )
+            }
           >
-            <p>{p.name}</p>
-            <strong>₦{p.selling_price}</strong>
+
+            <img
+              src={exam.logo}
+              alt={exam.name}
+            />
+
+            <p>
+              {exam.name}
+            </p>
+
           </div>
         ))}
+
       </div>
 
       {/* QUANTITY */}
+
       <div className="input-group">
-        <label>Quantity</label>
-        <select value={quantity} onChange={(e) => setQuantity(e.target.value)}>
-          <option value={1}>1</option>
-          <option value={2}>2</option>
-          <option value={5}>5</option>
+
+        <label>
+          Quantity
+        </label>
+
+        <select
+          value={quantity}
+          onChange={(e) =>
+            setQuantity(
+              Number(
+                e.target.value
+              )
+            )
+          }
+        >
+
+          <option value={1}>
+            1 PIN
+          </option>
+
+          <option value={2}>
+            2 PINS
+          </option>
+
+          <option value={5}>
+            5 PINS
+          </option>
+
         </select>
+
       </div>
 
       {/* SUMMARY */}
-      {selectedProduct && (
+
+      {selectedExam && (
+
         <div className="summary-box">
-          <p>{selectedProduct.name}</p>
-          <p>Total: ₦{selectedProduct.selling_price * quantity}</p>
+
+          <p>
+            <strong>
+              Exam:
+            </strong>{" "}
+            {
+              selectedExam.name
+            }
+          </p>
+
+          <p>
+            <strong>
+              Quantity:
+            </strong>{" "}
+            {quantity}
+          </p>
+
+          <p>
+            <strong>
+              Total:
+            </strong>{" "}
+            ₦
+            {Number(
+              total
+            ).toLocaleString()}
+          </p>
+
         </div>
       )}
 
-      <button className="pay-btn" onClick={handlePurchase}>
-        Buy PIN
+      {/* BUTTON */}
+
+      <button
+        className="pay-btn"
+
+        disabled={
+          !selectedExam ||
+          loading
+        }
+
+        onClick={buyPin}
+      >
+
+        {loading
+          ? "Processing..."
+          : "Buy PIN"}
+
       </button>
+
+      {/* RESULT */}
+
+      {result && (
+
+        <div className="result-overlay">
+
+          <div className="result-box">
+
+            {result.success ? (
+
+              <>
+
+                <h2 className="success">
+                  ✅ Successful
+                </h2>
+
+                <p>
+                  {
+                    result.exam_name
+                  } PIN generated successfully
+                </p>
+
+                <div className="pins-wrapper">
+
+                  {result.pins?.map(
+                    (
+                      pin,
+                      index
+                    ) => (
+
+                      <div
+                        key={index}
+                        className="token-box"
+                      >
+
+                        <h3>
+                          PIN{" "}
+                          {index + 1}
+                        </h3>
+
+                        <p>
+                          {pin}
+                        </p>
+
+                      </div>
+                    )
+                  )}
+
+                </div>
+
+              </>
+
+            ) : (
+
+              <>
+
+                <h2 className="error">
+                  ❌ Failed
+                </h2>
+
+                <p>
+                  {result.message}
+                </p>
+
+              </>
+            )}
+
+            <button
+              onClick={() =>
+                setResult(null)
+              }
+            >
+              Close
+            </button>
+
+          </div>
+
+        </div>
+      )}
 
     </DashboardLayout>
   );

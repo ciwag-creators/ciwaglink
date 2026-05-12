@@ -1,64 +1,276 @@
-import axios from "axios";
-import { lockWallet, releaseWallet } from "@/lib/vtu/wallet";
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabaseClient";
 
 export async function POST(req) {
+
   try {
-    const { user_id, product_id, quantity } = await req.json();
 
-    const transaction_id = "EXAM_" + Date.now();
+    const body = await req.json();
 
-    // 🔥 Fetch product again for correct price
-    const productRes = await axios.get(
-      "https://www.cheapdatahub.ng/api/v1/resellers/exam-pin/products/",
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.CHEAPDATA_API_KEY}`
-        }
-      }
-    );
+    const {
+      user_id,
+      exam_type,
+      product_id,
+      quantity,
+      amount,
+    } = body;
 
-    const product = productRes.data.data.find(p => p.id == product_id);
+    // =========================
+    // VALIDATION
+    // =========================
 
-    const total = product.price * quantity;
+    if (
+      !user_id ||
+      !exam_type ||
+      !product_id ||
+      !quantity ||
+      !amount
+    ) {
 
-    // 🔒 LOCK WALLET
-    const lock = await lockWallet(user_id, total, transaction_id);
-
-    if (!lock.success) {
-      return Response.json({ success: false, message: lock.message });
+      return NextResponse.json({
+        success: false,
+        message: "Missing required fields",
+      });
     }
 
-    // 🚀 BUY PIN
-    const response = await axios.post(
+    // =========================
+    // VALID QUANTITY
+    // =========================
+
+    if (
+      ![1, 2, 5].includes(
+        Number(quantity)
+      )
+    ) {
+
+      return NextResponse.json({
+        success: false,
+        message:
+          "Quantity must be 1, 2 or 5",
+      });
+    }
+
+    // =========================
+    // GET WALLET
+    // =========================
+
+    const {
+      data: wallet,
+      error: walletError,
+    } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("user_id", user_id)
+      .single();
+
+    console.log("WALLET:", wallet);
+
+    if (walletError || !wallet) {
+
+      console.log(
+        "WALLET ERROR:",
+        walletError
+      );
+
+      return NextResponse.json({
+        success: false,
+        message: "Wallet not found",
+      });
+    }
+
+    // =========================
+    // CHECK BALANCE
+    // =========================
+
+    if (
+      Number(wallet.balance) <
+      Number(amount)
+    ) {
+
+      return NextResponse.json({
+        success: false,
+        message:
+          "Insufficient wallet balance",
+      });
+    }
+
+    // =========================
+    // CREATE TRANSACTION
+    // =========================
+
+    const {
+      data: transaction,
+    } = await supabase
+      .from(
+        "exam_pin_transactions"
+      )
+      .insert({
+
+        user_id,
+
+        exam_type,
+
+        quantity,
+
+        amount,
+
+        status: "pending",
+
+      })
+      .select()
+      .single();
+
+    // =========================
+    // CALL CHEAPDATAHUB
+    // =========================
+
+    const response = await fetch(
       "https://www.cheapdatahub.ng/api/v1/resellers/exam-pin/purchase/",
       {
-        product_id,
-        quantity
-      },
-      {
+        method: "POST",
+
         headers: {
-          Authorization: `Bearer ${process.env.CHEAPDATA_API_KEY}`
-        }
+
+          Authorization:
+            `Bearer ${process.env.CHEAPDATAHUB_API_KEY}`,
+
+          "Content-Type":
+            "application/json",
+
+        },
+
+        body: JSON.stringify({
+
+          product_id,
+
+          quantity,
+
+        }),
       }
     );
 
-    const success = response.data.status === "true";
+    const result =
+      await response.json();
 
-    await releaseWallet(user_id, total, transaction_id, success);
+    console.log(
+      "EXAM PIN RESPONSE:",
+      result
+    );
 
-    const pins = response.data.data?.delivery?.pins || [];
+    // =========================
+    // FAILED
+    // =========================
 
-    return Response.json({
-      success,
-      message: response.data.message,
+    if (
+      result.status !== "true"
+    ) {
+
+      await supabase
+        .from(
+          "exam_pin_transactions"
+        )
+        .update({
+          status: "failed",
+        })
+        .eq(
+          "id",
+          transaction.id
+        );
+
+      return NextResponse.json({
+
+        success: false,
+
+        message:
+          result.message ||
+          "Exam pin purchase failed",
+
+      });
+    }
+
+    // =========================
+    // EXTRACT PINS
+    // =========================
+
+    const pins =
+      result.data?.delivery?.pins || [];
+
+    // =========================
+    // DEDUCT WALLET
+    // =========================
+
+    const newBalance =
+      Number(wallet.balance) -
+      Number(amount);
+
+    await supabase
+      .from("wallets")
+      .update({
+        balance: newBalance,
+      })
+      .eq("user_id", user_id);
+
+    // =========================
+    // UPDATE TRANSACTION
+    // =========================
+
+    await supabase
+      .from(
+        "exam_pin_transactions"
+      )
+      .update({
+
+        status: "success",
+
+        pin:
+          JSON.stringify(pins),
+
+        reference:
+          result.reference || "",
+
+      })
+      .eq(
+        "id",
+        transaction.id
+      );
+
+    // =========================
+    // SUCCESS
+    // =========================
+
+    return NextResponse.json({
+
+      success: true,
+
+      message:
+        result.message ||
+        "Exam pin purchase successful",
+
       pins,
-      transaction_id
+
+      quantity:
+        result.data?.delivery
+          ?.quantity,
+
+      exam_name:
+        result.data?.delivery
+          ?.exam_name,
+
+      new_balance:
+        newBalance,
+
     });
 
   } catch (err) {
-    return Response.json({
+
+    console.log(
+      "EXAM PIN ERROR:",
+      err
+    );
+
+    return NextResponse.json({
       success: false,
-      message: "Exam purchase failed"
+      message: "Server error",
     });
   }
 }

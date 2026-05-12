@@ -1,219 +1,410 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/lib/supabaseClient";
+import { discos } from "@/lib/electricity/discos";
 
 export default function ElectricityPage() {
-  const [disco, setDisco] = useState("ikeja-electric");
-  const [meterNumber, setMeterNumber] = useState("");
-  const [meterType, setMeterType] = useState("prepaid");
-  const [amount, setAmount] = useState("");
 
-  const [customer, setCustomer] = useState(null);
-  const [verifying, setVerifying] = useState(false);
+  // =========================
+  // STATES
+  // =========================
 
-  const [error, setError] = useState("");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [selectedDisco, setSelectedDisco] =
+    useState(null);
 
-  // ⚡ DISCO LIST WITH LOGOS
-  const discos = [
-    { id: "ikeja-electric", name: "IKEDC", logo: "/discos/ikeja.png" },
-    { id: "eko-electric", name: "EKEDC", logo: "/discos/eko.png" },
-    { id: "bedc", name: "BEDC", logo: "/discos/bedc.png" },
-    { id: "abuja-electric", name: "AEDC", logo: "/discos/abuja.png" },
-    { id: "ibadan-electric", name: "IBEDC", logo: "/discos/ibadan.png" },
-    { id: "portharcourt-electric", name: "PHED", logo: "/discos/ph.png" },
-    { id: "kaduna-electric", name: "KAEDCO", logo: "/discos/kaduna.png" },
-    { id: "jos-electric", name: "JEDC", logo: "/discos/jos.png" },
-    { id: "enugu-electric", name: "EEDC", logo: "/discos/enugu.png" }
-  ];
+  const [meterNumber, setMeterNumber] =
+    useState("");
 
-  // 🔍 VERIFY METER
-  const verifyMeter = async () => {
-    if (!meterNumber || meterNumber.length < 10) {
-      setError("Enter valid meter number");
-      return;
-    }
+  const [meterType, setMeterType] =
+    useState("prepaid");
 
-    setVerifying(true);
-    setError("");
-    setCustomer(null);
+  const [amount, setAmount] =
+    useState("");
 
-    try {
-      const res = await fetch("/api/electricity/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          disco,
-          meter_number: meterNumber,
-          meter_type: meterType
-        })
-      });
+  const [phone, setPhone] =
+    useState("");
 
-      const data = await res.json();
+  const [wallet, setWallet] =
+    useState(null);
 
-      if (data.success) {
-        setCustomer(data.customer);
-      } else {
-        setError(data.message || "Verification failed");
+  const [loading, setLoading] =
+    useState(false);
+
+  const [result, setResult] =
+    useState(null);
+
+  // =========================
+  // LOAD WALLET
+  // =========================
+
+  useEffect(() => {
+
+    const loadWallet =
+      async () => {
+
+        const {
+          data: { user },
+        } =
+          await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const { data } =
+          await supabase
+            .from("wallets")
+            .select("*")
+            .eq(
+              "user_id",
+              user.id
+            )
+            .single();
+
+        setWallet(data);
+      };
+
+    loadWallet();
+
+  }, []);
+
+  // =========================
+  // PURCHASE
+  // =========================
+
+  const buyElectricity =
+    async () => {
+
+      try {
+
+        setLoading(true);
+
+        const {
+          data: { user },
+        } =
+          await supabase.auth.getUser();
+
+        if (!user) {
+          alert(
+            "Please login"
+          );
+          return;
+        }
+
+        const res = await fetch(
+          "/api/electricity",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+
+              user_id:
+                user.id,
+
+              disco:
+                selectedDisco.id,
+
+              meter_number:
+                meterNumber,
+
+              meter_type:
+                meterType,
+
+              amount,
+
+              phone,
+            }),
+          }
+        );
+
+        const data =
+          await res.json();
+
+        console.log(
+          "ELECTRICITY RESULT:",
+          data
+        );
+
+        setResult(data);
+
+        // REFRESH WALLET
+
+        const {
+          data: newWallet,
+        } = await supabase
+          .from("wallets")
+          .select("*")
+          .eq(
+            "user_id",
+            user.id
+          )
+          .single();
+
+        setWallet(newWallet);
+
+      } catch (err) {
+
+        console.log(err);
+
+        setResult({
+          success: false,
+          message:
+            "Something went wrong",
+        });
+
+      } finally {
+
+        setLoading(false);
       }
-
-    } catch {
-      setError("Network error");
-    }
-
-    setVerifying(false);
-  };
-
-  // 💳 PURCHASE
-  const handlePurchase = async () => {
-    if (!customer) {
-      setError("Please verify meter first");
-      return;
-    }
-
-    setShowConfirm(false);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/electricity", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          user_id: "demo-user-id",
-          disco,
-          meter_number: meterNumber,
-          meter_type: meterType,
-          amount
-        })
-      });
-
-      const data = await res.json();
-      setResult(data);
-
-    } catch {
-      setResult({ success: false, message: "Network error" });
-    }
-
-    setLoading(false);
-  };
+    };
 
   return (
     <DashboardLayout
-      title="Pay Electricity"
-      result={result}
-      loading={loading}
-      setResult={setResult}
+      title="Electricity"
     >
 
-      {/* ⚡ DISCO SELECTOR */}
+      {/* WALLET */}
+
+      <div className="wallet-card">
+
+        <p>
+          Wallet Balance
+        </p>
+
+        <h1>
+          ₦
+          {Number(
+            wallet?.balance || 0
+          ).toLocaleString()}
+        </h1>
+
+      </div>
+
+      {/* DISCO */}
+
       <div className="disco-grid">
-        {discos.map(d => (
+
+        {discos.map(disco => (
+
           <div
-            key={d.id}
-            className={`disco-card ${disco === d.id ? "active" : ""}`}
-            onClick={() => setDisco(d.id)}
+            key={disco.id}
+
+            className={`disco-card ${
+              selectedDisco?.id ===
+              disco.id
+                ? "active"
+                : ""
+            }`}
+
+            onClick={() =>
+              setSelectedDisco(
+                disco
+              )
+            }
           >
-            <img src={d.logo} alt={d.name} />
-            <p>{d.name}</p>
+
+            <img
+              src={disco.logo}
+              alt={disco.name}
+            />
+
+            <p>
+              {disco.name}
+            </p>
+
           </div>
         ))}
+
       </div>
 
       {/* METER NUMBER */}
+
       <div className="input-group">
-        <label>Meter Number</label>
+
+        <label>
+          Meter Number
+        </label>
+
         <input
-          value={meterNumber}
-          onChange={(e) => setMeterNumber(e.target.value)}
+          type="text"
           placeholder="Enter meter number"
+          value={meterNumber}
+          onChange={(e) =>
+            setMeterNumber(
+              e.target.value
+            )
+          }
         />
+
       </div>
 
       {/* METER TYPE */}
+
       <div className="input-group">
-        <label>Meter Type</label>
-        <select value={meterType} onChange={(e) => setMeterType(e.target.value)}>
-          <option value="prepaid">Prepaid</option>
-          <option value="postpaid">Postpaid</option>
+
+        <label>
+          Meter Type
+        </label>
+
+        <select
+          value={meterType}
+          onChange={(e) =>
+            setMeterType(
+              e.target.value
+            )
+          }
+        >
+
+          <option value="prepaid">
+            Prepaid
+          </option>
+
+          <option value="postpaid">
+            Postpaid
+          </option>
+
         </select>
+
       </div>
-
-      {/* VERIFY */}
-      <button onClick={verifyMeter} disabled={verifying}>
-        {verifying ? "Verifying..." : "Verify Meter"}
-      </button>
-
-      {/* VERIFIED CUSTOMER */}
-      {customer && (
-  <div className="verified-box">
-    <p>✅ <strong>{customer.name}</strong></p>
-    <p>📍 {customer.address}</p>
-    <p>⚡ Tariff: {customer.tariff}</p>
-  </div>
-)}
-
-      {error && <p className="error">{error}</p>}
 
       {/* AMOUNT */}
+
       <div className="input-group">
-        <label>Amount</label>
+
+        <label>
+          Amount
+        </label>
+
         <input
           type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
           placeholder="Enter amount"
+          value={amount}
+          onChange={(e) =>
+            setAmount(
+              e.target.value
+            )
+          }
         />
+
       </div>
 
-      {/* PAY */}
-      <button className="pay-btn" onClick={() => setShowConfirm(true)}>
-        Proceed to Pay
+      {/* PHONE */}
+
+      <div className="input-group">
+
+        <label>
+          Phone Number
+        </label>
+
+        <input
+          type="text"
+          placeholder="Enter phone number"
+          value={phone}
+          onChange={(e) =>
+            setPhone(
+              e.target.value
+            )
+          }
+        />
+
+      </div>
+
+      {/* BUTTON */}
+
+      <button
+        className="pay-btn"
+
+        disabled={
+          !selectedDisco ||
+          !meterNumber ||
+          !amount ||
+          !phone ||
+          loading
+        }
+
+        onClick={
+          buyElectricity
+        }
+      >
+
+        {loading
+          ? "Processing..."
+          : "Buy Electricity"}
+
       </button>
 
-      {/* CONFIRM */}
-      {showConfirm && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Confirm Payment</h3>
+      {/* RESULT */}
 
-         <p><strong>Name:</strong> {customer?.name}</p>
-         <p><strong>Address:</strong> {customer?.address}</p>
-         <p><strong>Tariff:</strong> {customer?.tariff}</p>
-         <p><strong>Meter:</strong> {meterNumber}</p>
-         <p><strong>Amount:</strong> ₦{amount}</p>
+      {result && (
 
-            <div className="modal-actions">
-              <button onClick={() => setShowConfirm(false)}>Cancel</button>
-              <button onClick={handlePurchase} className="confirm-btn">
-                Confirm
-              </button>
-              {result.success && (
-  <button
-    className="receipt-btn"
-    onClick={() =>
-      generateReceipt({
-        name: result.customer?.name || "Customer",
-        meter: result.meter_number,
-        disco: result.disco,
-        amount: result.amount,
-        token: result.token,
-        units: result.units,
-        transaction_id: result.transaction_id
-      })
-    }
-  >
-    Download Receipt
-  </button>
-)}
-            </div>
+        <div className="result-overlay">
+
+          <div className="result-box">
+
+            {result.success ? (
+
+              <>
+
+                <h2 className="success">
+                  ✅ Successful
+                </h2>
+
+                <p>
+                  Electricity purchase successful
+                </p>
+
+                <div className="token-box">
+
+                  <p>
+                    <strong>
+                      Token
+                    </strong>
+                  </p>
+
+                  <h2>
+                    {result.token}
+                  </h2>
+
+                </div>
+
+                <p>
+                  Units:
+                  {" "}
+                  {result.units}
+                </p>
+
+              </>
+
+            ) : (
+
+              <>
+
+                <h2 className="error">
+                  ❌ Failed
+                </h2>
+
+                <p>
+                  {result.message}
+                </p>
+
+              </>
+            )}
+
+            <button
+              onClick={() =>
+                setResult(null)
+              }
+            >
+              Close
+            </button>
+
           </div>
+
         </div>
       )}
 
