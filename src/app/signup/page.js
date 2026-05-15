@@ -1,68 +1,160 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import "./auth.css";
 
 export default function SignupPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+
   const router = useRouter();
 
-  const handleSignup = async () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+
     setLoading(true);
-    setError("");
+    setMessage("");
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
-    });
+    try {
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
+      const { data, error } =
+        await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+      if (error) {
+        setMessage(error.message);
+        setLoading(false);
+        return;
+      }
+
+      const user = data?.user;
+
+      if (user) {
+
+        await supabase
+          .from("wallets")
+          .upsert({
+            user_id: user.id,
+            balance: 0,
+            currency: "NGN",
+          });
+
+        router.push("/dashboard");
+      }
+
+    } catch (err) {
+      setMessage("Signup failed");
     }
 
-    // Automatically create profile and wallet
-    await supabase.from("profiles").insert({
-      id: data.user.id,
-      full_name: "",
-      email: data.user.email
-    });
-
-    await supabase.from("wallets").insert({
-      user_id: data.user.id,
-      balance: 0,
-      locked_balance: 0
-    });
-
-    alert("Signup successful! Please verify your email if required.");
     setLoading(false);
-    router.push("/login");
   };
 
   return (
     <div className="auth-page">
-      <h1>Signup</h1>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      {error && <p className="error">{error}</p>}
-      <button onClick={handleSignup} disabled={loading}>
-        {loading ? "Signing up..." : "Sign Up"}
-      </button>
+
+      <div className="auth-left">
+
+        <div className="overlay"></div>
+
+        <div className="left-content">
+
+          <h1>CIWAGLINK</h1>
+
+          <p>
+            Join thousands of users enjoying
+            instant VTU services nationwide.
+          </p>
+
+        </div>
+
+      </div>
+
+      <div className="auth-right">
+
+        <form
+          className="auth-card"
+          onSubmit={handleSignup}
+        >
+
+          <h2>Create Account</h2>
+
+          <p className="subtitle">
+            Start using CIWAGLINK today
+          </p>
+
+          {message && (
+            <div className="auth-error">
+              {message}
+            </div>
+          )}
+
+          <div className="input-group">
+
+            <label>Email</label>
+
+            <input
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              required
+            />
+
+          </div>
+
+          <div className="input-group">
+
+            <label>Password</label>
+
+            <input
+              type="password"
+              placeholder="Create password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              required
+            />
+
+          </div>
+
+          <button
+            type="submit"
+            className="auth-btn"
+            disabled={loading}
+          >
+            {loading
+              ? "Creating..."
+              : "Create Account"}
+          </button>
+
+          <div className="bottom-link">
+            Already have an account?
+
+            <Link href="/login">
+              Login
+            </Link>
+          </div>
+
+        </form>
+
+      </div>
+
     </div>
   );
 }

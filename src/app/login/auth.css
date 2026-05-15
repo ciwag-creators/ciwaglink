@@ -1,0 +1,159 @@
+ *{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  background:#f4f5fb;
+}
+
+.auth-page{
+  width:100%;
+  min-height:100vh;
+  display:flex;
+}
+
+.auth-left{
+  width:50%;
+  background:
+  linear-gradient(
+    rgba(16,0,45,0.8),
+    rgba(91,0,255,0.8)
+  ),
+  url("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200");
+
+  background-size:cover;
+  background-position:center;
+
+  position:relative;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  padding:60px;
+}
+
+.left-content{
+  color:white;
+  position:relative;
+  z-index:2;
+}
+
+.left-content h1{
+  font-size:60px;
+  margin-bottom:20px;
+}
+
+.left-content p{
+  font-size:22px;
+  line-height:1.6;
+}
+
+.auth-right{
+  width:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px;
+}
+
+.auth-card{
+  width:100%;
+  max-width:450px;
+  background:white;
+  padding:50px;
+  border-radius:25px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.08);
+}
+
+.auth-card h2{
+  font-size:40px;
+}
+
+.subtitle{
+  color:#777;
+  margin-top:10px;
+  margin-bottom:35px;
+}
+
+.auth-error{
+  background:#ffe7e7;
+  color:red;
+  padding:14px;
+  border-radius:10px;
+  margin-bottom:20px;
+}
+
+.input-group{
+  margin-bottom:25px;
+}
+
+.input-group label{
+  display:block;
+  margin-bottom:10px;
+  font-weight:bold;
+}
+
+.input-group input{
+  width:100%;
+  height:55px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  padding:0 15px;
+  font-size:16px;
+}
+
+.input-group input:focus{
+  outline:none;
+  border:1px solid #7b2cff;
+}
+
+.auth-btn{
+  width:100%;
+  height:58px;
+  border:none;
+  background:#7b2cff;
+  color:white;
+  font-size:18px;
+  border-radius:12px;
+  cursor:pointer;
+  margin-top:10px;
+}
+
+.auth-btn:hover{
+  background:#6200ea;
+}
+
+.bottom-link{
+  margin-top:25px;
+  text-align:center;
+}
+
+.bottom-link a{
+  margin-left:8px;
+  color:#7b2cff;
+  font-weight:bold;
+  text-decoration:none;
+}
+
+@media screen and (max-width:900px){
+
+  .auth-left{
+    display:none;
+  }
+
+  .auth-right{
+    width:100%;
+  }
+
+  .auth-card{
+    padding:35px 25px;
+  }
+
+  .auth-card h2{
+    font-size:32px;
+  }
+}
