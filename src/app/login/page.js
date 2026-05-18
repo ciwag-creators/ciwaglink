@@ -34,10 +34,15 @@ export default function LoginPage() {
         return;
       }
 
-      if (data?.user) {
-        router.push("/dashboard");
-        router.refresh();
-      }
+     if (data?.user) {
+
+  setTimeout(() => {
+
+    router.push("/dashboard");
+
+  }, 500);
+
+}
 
     } catch (err) {
       setMessage("Something went wrong");
